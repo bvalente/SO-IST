@@ -31,3 +31,6 @@ funcao thread
 
 -pthread_exit
 	Args: Ponteiro para var com estado de terminação
+___
+
+Argumentos para escravos : ID, numIterações, numTrabalhadoras, N
