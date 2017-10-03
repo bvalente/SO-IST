@@ -1,0 +1,14 @@
+funçao main
+1. criar tarefas trabalhadoras (escravos)
+2. enviar fatia a cada escravo
+3. receber fatia calculada de cada escravo e fuardar na matriz
+4. esperar que os escravos terminem
+5. imprimir resultado e libertar memoria	(usar valgrind)
+
+funcao thread
+1. alocar e receber fatia da mestre
+2. duplicar a fatia (fatia auxiliar)
+3. ciclo das iteraçoes
+	3.1. iterar sobre pontos da fatia e clcular temperatura
+	3.2. enviar/receber dados de linhas adjacentes
+4. enviar a fatia calculada à mestre
