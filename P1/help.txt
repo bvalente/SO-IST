@@ -12,3 +12,22 @@ funcao thread
 	3.1. iterar sobre pontos da fatia e clcular temperatura
 	3.2. enviar/receber dados de linhas adjacentes
 4. enviar a fatia calculada à mestre
+
+* THREADS N STUFF *
+
+ - pthread _ create
+ 	1. buufer para guardar ID
+ 	2. NUll
+ 	3. Nomr da função a executar 
+ 	4. ponteiro para argumento da função
+
+ 	é do tipo() void * 'func' ( void * args )
+ 	retorna 0 = sucesso
+
+- pthread_join 
+	Args :
+		1. ID da thread
+		2. Ponteiro para um buffer onde é guardado 'estado de terminação'
+
+-pthread_exit
+	Args: Ponteiro para var com estado de terminação
