@@ -1,6 +1,8 @@
 /*
 // Projeto SO - exercicio 1, version 03
 // Sistemas Operativos, DEI/IST/ULisboa 2017-18
+
+// Realizado por Bernardo Valente e Francisco Machado
 */
 
 #include <stdio.h>
@@ -9,80 +11,55 @@
 
 #include "matrix2d.h"
 #include "mplib3.h"
-#include "leQueue.h"
+#include "leQueue.h"  //desnecessario?
 #include "pthread.h"
 
-typedef struct Arg{
+typedef struct Args{
     int ID;
     int numIteracoes;
-    int numTrabalhadoras;
+    int numThreads;
     int N;
 }EscravoArgs;
 
-
 /*--------------------------------------------------------------------
-| Function: simul e simulFatia
+| Function: simulFatia
 ---------------------------------------------------------------------*/
 
-DoubleMatrix2D *simul(DoubleMatrix2D *matrix, DoubleMatrix2D *matrix_aux, int linhas, int colunas, int numIteracoes) {
-
-  DoubleMatrix2D *m, *aux, *tmp;
-  int iter, i, j;
-  double value;
-
-
-  if(linhas < 2 || colunas < 2)
-    return NULL;
-
-  m = matrix;
-  aux = matrix_aux;
-
-  for (iter = 0; iter < numIteracoes; iter++) {
-
-    for (i = 1; i < linhas - 1; i++)
-      for (j = 1; j < colunas - 1; j++) {
-        value = ( dm2dGetEntry(m, i-1, j) + dm2dGetEntry(m, i+1, j) +
-		dm2dGetEntry(m, i, j-1) + dm2dGetEntry(m, i, j+1) ) / 4.0;
-        dm2dSetEntry(aux, i, j, value);
-      }
-
-    tmp = aux;
-    aux = m;
-    m = tmp;
-  }
-
-  return m;
-}
-
-void *simulFatia(void* args){
-	int ID = args.ID;
-  int numIteracoes = args.numIteracoes;
-  int numTrabalhadoras = args.numTrabalhadoras;
-  int N = args.N;
-  int linhas = N / numTrabalhadoras;
+void *simulFatia(void* argumentos){
+  EscravoArgs* args = (EscravoArgs*) argumentos;
+	int ID = args->ID;
+  int numIteracoes = args->numIteracoes;
+  int numThreads = args->numThreads;
+  int N = args->N;
+  int linhas = N / numThreads;
+  int colunas = N;
 	int i;
-	DoubleMatrix2D* matrix, matrix_aux;
+	DoubleMatrix2D *matrix, *matrix_aux;
 
 	matrix = dm2dNew(linhas+2, colunas+2);
 	matrix_aux = dm2dNew(linhas+2, colunas+2);
 
-  //receber a mensagem com as linhas da matriz da main aqui
+  receberMensagem( 0, ID, matrix, sizeof(double)*(colunas+2)*(linhas+2) );
 
+  dm2dCopy(matrix_aux,matrix);
 
 	for (i = 0; i < numIteracoes; i++){
 
-		if ( numThread != 0)
-			enviarMensagem( numThread, numThread -1, (void*) dm2dGetLine(matrix, 1), #tamanho_linha);
-		if ( numThread != totalThreads -1)
-			enviarMensagem (numThread, numThread +1, (void*) dm2dGetLine(matrix, linhas-2), #tamanho_linha);
-
-		if ( numThread != 0)
-			receberMensagem( numThread-1, numThread, #linha0 , #tamanho_linha);
-		if (numThread != totalThreads-1)
-			receberMensagem( numThread+1, numThread, #linha_coluna-1, #tamanho_linha);
+    //fazer simulacao aqui
 
 
+		if ( ID != 1)
+			enviarMensagem( ID, ID -1, (void*) dm2dGetLine(matrix, 1), sizeof(double)*(colunas+2));
+		if ( ID != numThreads)
+			enviarMensagem (ID, ID +1, (void*) dm2dGetLine(matrix, linhas), sizeof(double)*(colunas+2));
 
+		if ( ID != 1)
+			receberMensagem( ID -1, ID, &matrix[0] , sizeof(double)*(colunas+2));
+		if (ID != numThreads)
+			receberMensagem( ID +1, ID, &matrix[linhas+1], sizeof(double)*(colunas+2));
+  }
+
+  return NULL;
 }
 
 /*--------------------------------------------------------------------
@@ -139,12 +116,12 @@ int main (int argc, char** argv) {
   int csz = parse_integer_or_exit(argv[8], "csz");
 
 
-  DoubleMatrix2D *matrix, *matrix_aux, *result;
+  DoubleMatrix2D *matrix, *result;
 
 
   fprintf(stderr, "\nArgumentos:\n"
-	" N=%d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iteracoes=%d\n",
-	N, tEsq, tSup, tDir, tInf, iteracoes);
+	" N=%d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iteracoes=%d trabalhos=%d csz=%d\n",
+	N, tEsq, tSup, tDir, tInf, iteracoes, trab, csz);
 
   if(N < 1 || tEsq < 0 || tSup < 0 || tDir < 0 || tInf < 0 || iteracoes < 1 || trab < 1 || csz < 1) {
     fprintf(stderr, "\nErro: Argumentos invalidos.\n"
@@ -158,17 +135,16 @@ int main (int argc, char** argv) {
 	  return 1;
   }
 
-  int inicializarMPlib(int csz, int trab);
+  inicializarMPlib(csz,  trab);
 
   matrix = dm2dNew(N+2, N+2);
-  //matrix_aux = dm2dNew(N+2, N+2);
 
-  if (matrix == NULL /*|| matrix_aux == NULL*/) {
-    fprintf(stderr, "\nErro: Nao foi possivel alocar memoria para as matrizes.\n\n");
+  if (matrix == NULL) {
+    fprintf(stderr, "\nErro: Nao foi possivel alocar memoria para a matriz.\n\n");
     return -1;
   }
 
-  int i;
+  int ID, i, j=0;
 
   for(i=0; i<N+2; i++)
     dm2dSetLineTo(matrix, i, 0);
@@ -178,14 +154,26 @@ int main (int argc, char** argv) {
   dm2dSetColumnTo (matrix, 0, tEsq);
   dm2dSetColumnTo (matrix, N+1, tDir);
 
-  //dm2dCopy (matrix_aux, matrix);
+  pthread_t *tid = malloc(sizeof(pthread_t)*trab);
+  EscravoArgs *argumentos = malloc(sizeof(EscravoArgs)*trab);
 
-  /*criar as tarefas aqui*/
-  pthread_t tid[trab];
+  for(i=1; i <= trab; i++){
+    argumentos[i-1].ID = i;
+    argumentos[i-1].numIteracoes = iteracoes;
+    argumentos[i-1].numThreads = trab;
+    argumentos[i-1].N = N;
 
+    pthread_create(&tid[i], NULL, simulFatia, &argumentos[i]);
+  }
 
+  for  ( ID = 1; ID <= trab; ID++ ){
+      enviarMensagem(0, ID,(void*) &matrix[j], sizeof(double)* ( N+2 )*(( N/trab ) + 2));
+      j += N/trab;
+  }
 
-
+  /*
+  receber mensagens para criar a matriz
+  */
 
   //result = simul(matrix, matrix_aux, N+2, N+2, iteracoes);
   if (result == NULL) {
@@ -194,9 +182,8 @@ int main (int argc, char** argv) {
   }
 
   dm2dPrint(result);
-
   dm2dFree(matrix);
-  //dm2dFree(matrix_aux);
+  libertarMPlib();
 
   return 0;
 }
