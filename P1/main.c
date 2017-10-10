@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "matrix2d.h"
 #include "mplib3.h"
@@ -41,11 +42,13 @@ void *simulFatia(void* argumentos){
 	matrix = dm2dNew(linhas+2, colunas+2);
 	matrix_aux = dm2dNew(linhas+2, colunas+2);
 
-  for ( i = 0; i < N + 2; i++){
-    receberMensagem(0,ID,(void*) dm2dGetLine(matrix, i) ,sizeof(double) * (N+2) );
-    printf("%d %d\n",ID ,i );
+  for ( i = 0; i < (linhas + 2); i++){
+    receberMensagem(0, ID, dm2dGetLine(matrix, i) , sizeof(double) * (N+2) );
+    //printf("%d %d\n",ID ,i );
   }
-
+  printf("%d: vou dormir\n", ID);
+  sleep(3);
+  printf("%d: acordei\n", ID);
 
   dm2dCopy(matrix_aux,matrix);
 
@@ -66,9 +69,9 @@ void *simulFatia(void* argumentos){
 
     //enviamos as mensagens
 		if ( ID != 1)
-			enviarMensagem( ID, ID -1, (void*) dm2dGetLine(matrix, 1), sizeof(double)*(colunas+2));
+			enviarMensagem( ID, ID -1, dm2dGetLine(matrix, 1), sizeof(double)*(colunas+2));
 		if ( ID != numThreads)
-			enviarMensagem (ID, ID +1, (void*) dm2dGetLine(matrix, linhas), sizeof(double)*(colunas+2));
+			enviarMensagem (ID, ID +1, dm2dGetLine(matrix, linhas), sizeof(double)*(colunas+2));
 
 		if ( ID != 1)
 			receberMensagem( ID -1, ID, &matrix[0] , sizeof(double)*(colunas+2));
@@ -158,7 +161,7 @@ int main (int argc, char** argv) {
 	  return 1;
   }
 
-  inicializarMPlib(csz,  trab);
+  inicializarMPlib(csz,  trab+1);
 
   matrix = dm2dNew(N+2, N+2);
 
@@ -170,7 +173,7 @@ int main (int argc, char** argv) {
   int ID, i;
 
   for(i=0; i<N+2; i++)
-    dm2dSetLineTo(matrix, i, 0);
+  dm2dSetLineTo(matrix, i, 0);
 
   dm2dSetLineTo (matrix, 0, tSup);
   dm2dSetLineTo (matrix, N+1, tInf);
@@ -195,7 +198,10 @@ int main (int argc, char** argv) {
   j = 0;
   for  ( ID = 1; ID <= trab; ID++ ){
     for ( i = j; i < j + tamFatia + 2; i++){
-      enviarMensagem(0,ID,(void*) dm2dGetLine(matrix, i),sizeof(double)* (N+2));
+      printf("a enviar de %d para %d : linha %d\n", 0, ID, i );
+      sleep(1);
+      enviarMensagem(0, ID, dm2dGetLine(matrix, i), sizeof(double)* (N+2) ) ;
+
     }
     printf("%d\n",j );
     j += tamFatia;
@@ -203,12 +209,12 @@ int main (int argc, char** argv) {
   printf("hello\n" );
   //correr todas as simulacoes/threads
   //sincronizar as threads?? pthread_join
-
+  sleep(3);
   //receber as mensagens finais de todas as threads e construir matriz
   j = 0;
   for ( ID = 1; ID <= trab ; ID++ ){
 
-    receberMensagem(ID, 0, (void*) &matrix[j], sizeof(double)* ( N+2 )*( tamFatia + 2));
+    receberMensagem(ID, 0, dm2dGetLine(matrix, 0), sizeof(double)* ( N+2 )*( tamFatia + 2));
     j += tamFatia;
   }
 
