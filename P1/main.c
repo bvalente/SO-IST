@@ -27,26 +27,31 @@ typedef struct Args{
 ---------------------------------------------------------------------*/
 
 void *simulFatia(void* argumentos){
-    EscravoArgs* args = (EscravoArgs*) argumentos;
-	int ID = args->ID;
-    int numIteracoes = args->numIteracoes;
-    int numThreads = args->numThreads;
-    int N = args->N;
-    int linhas = N / numThreads;
-    int colunas = N;
-	int i, l, k;
-	DoubleMatrix2D *matrix, *matrix_aux;
+  EscravoArgs* args = (EscravoArgs*) argumentos;
+  int ID = args->ID;
+  int numIteracoes = args->numIteracoes;
+  int numThreads = args->numThreads;
+  int N = args->N;
+  int linhas = N / numThreads;
+//  int linhas = args->N / args->numThreads;
+  int colunas = N;
+  int i, l, k;
+	DoubleMatrix2D *matrix, *matrix_aux, *ponteiro_aux;
 
 	matrix = dm2dNew(linhas+2, colunas+2);
 	matrix_aux = dm2dNew(linhas+2, colunas+2);
-    
-    receberMensagem( 0, ID, matrix, sizeof(double)*(colunas+2)*(linhas+2) );
 
-    dm2dCopy(matrix_aux,matrix);
+  for ( i = 0; i < N + 2; i++){
+    receberMensagem(0,ID,(void*) dm2dGetLine(matrix, i) ,sizeof(double) * (N+2) );
+    printf("%d %d\n",ID ,i );
+  }
+
+
+  dm2dCopy(matrix_aux,matrix);
 
 	int value;
 	for (i = 0; i < numIteracoes; i++){
-        
+
         //Calculos dos valores
         for (l = 1; l < linhas - 1; l++){
             for (k = 1; k < colunas - 1; k++) {
@@ -54,8 +59,12 @@ void *simulFatia(void* argumentos){
                 dm2dSetEntry(matrix_aux, l, k, value);
             }
         }
-        
+    //retroca das matrizes
+    ponteiro_aux = matrix;
+    matrix = matrix_aux;
+    matrix_aux = ponteiro_aux;
 
+    //enviamos as mensagens
 		if ( ID != 1)
 			enviarMensagem( ID, ID -1, (void*) dm2dGetLine(matrix, 1), sizeof(double)*(colunas+2));
 		if ( ID != numThreads)
@@ -66,6 +75,12 @@ void *simulFatia(void* argumentos){
 		if (ID != numThreads)
 			receberMensagem( ID +1, ID, &matrix[linhas+1], sizeof(double)*(colunas+2));
   }
+  //enviar mensagem para a main
+  receberMensagem( ID, 0, dm2dGetLine(matrix, 0), sizeof(double)*(colunas+2)*(linhas+2) );
+
+  //free
+  free(matrix);
+  free(matrix_aux);
 
   return NULL;
 }
@@ -124,7 +139,7 @@ int main (int argc, char** argv) {
   int csz = parse_integer_or_exit(argv[8], "csz");
 
 
-  DoubleMatrix2D *matrix, *result;
+  DoubleMatrix2D *matrix;
 
 
   fprintf(stderr, "\nArgumentos:\n"
@@ -171,35 +186,33 @@ int main (int argc, char** argv) {
     argumentos[i-1].numThreads = trab;
     argumentos[i-1].N = N;
 
-    pthread_create(&tid[i], NULL, simulFatia, &argumentos[i]);
-  }
-    int h = N/trab - 1, j = 0;
-    //COMEÇa com ID = 2? pq 1a linha da 1a fatia não precisa de ser 'partilhada'
-    //fazer receberMen DEPOIS
-  for  ( ID = 1; ID <= trab; ID++ ){
-      enviarMensagem(0, ID,(void*) &matrix[j], sizeof(double)* ( N+2 )*(( N/trab ) + 2));
-      j += N/trab;
-  }
-     //receber mensagem na ultima linha de cada fatia
-    //dunno wtf im doing
-    //fazer enviarMens ANTES
-    for ( ID = 1: ID <= trab - 1; ID++ ){
-        receberMensagem(0, ID, (void*) &matrix[h], sizeof(double)* ( N+2 )*(( N/trab ) + 2));
-        h += N/trab;
-    }
-  
-/*
-  receber mensagens para criar a matriz
-  */
- // criar a matriz?
-    
-  //result = simul(matrix, matrix_aux, N+2, N+2, iteracoes);
-  if (result == NULL) {
-    printf("\nErro na simulacao.\n\n");
-    return -1;
+    pthread_create(&tid[i-1], NULL, simulFatia, &argumentos[i-1]);
   }
 
-  dm2dPrint(result);
+  int tamFatia = N/trab , j;
+
+  //enviar mensagens para as threads
+  j = 0;
+  for  ( ID = 1; ID <= trab; ID++ ){
+    for ( i = j; i < j + tamFatia + 2; i++){
+      enviarMensagem(0,ID,(void*) dm2dGetLine(matrix, i),sizeof(double)* (N+2));
+    }
+    printf("%d\n",j );
+    j += tamFatia;
+  }
+  printf("hello\n" );
+  //correr todas as simulacoes/threads
+  //sincronizar as threads?? pthread_join
+
+  //receber as mensagens finais de todas as threads e construir matriz
+  j = 0;
+  for ( ID = 1; ID <= trab ; ID++ ){
+
+    receberMensagem(ID, 0, (void*) &matrix[j], sizeof(double)* ( N+2 )*( tamFatia + 2));
+    j += tamFatia;
+  }
+
+  dm2dPrint(matrix);
   dm2dFree(matrix);
   libertarMPlib();
 
