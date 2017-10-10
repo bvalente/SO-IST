@@ -1,3 +1,4 @@
+
 /*
 // Projeto SO - exercicio 1, version 03
 // Sistemas Operativos, DEI/IST/ULisboa 2017-18
@@ -26,27 +27,33 @@ typedef struct Args{
 ---------------------------------------------------------------------*/
 
 void *simulFatia(void* argumentos){
-  EscravoArgs* args = (EscravoArgs*) argumentos;
+    EscravoArgs* args = (EscravoArgs*) argumentos;
 	int ID = args->ID;
-  int numIteracoes = args->numIteracoes;
-  int numThreads = args->numThreads;
-  int N = args->N;
-  int linhas = N / numThreads;
-  int colunas = N;
-	int i;
+    int numIteracoes = args->numIteracoes;
+    int numThreads = args->numThreads;
+    int N = args->N;
+    int linhas = N / numThreads;
+    int colunas = N;
+	int i, l, k;
 	DoubleMatrix2D *matrix, *matrix_aux;
 
 	matrix = dm2dNew(linhas+2, colunas+2);
 	matrix_aux = dm2dNew(linhas+2, colunas+2);
+    
+    receberMensagem( 0, ID, matrix, sizeof(double)*(colunas+2)*(linhas+2) );
 
-  receberMensagem( 0, ID, matrix, sizeof(double)*(colunas+2)*(linhas+2) );
-
-  dm2dCopy(matrix_aux,matrix);
+    dm2dCopy(matrix_aux,matrix);
 
 	for (i = 0; i < numIteracoes; i++){
-
-    //fazer simulacao aqui
-
+        
+        //Calculos dos valores
+        for (l = 1; l < linhas - 1; l++){
+            for (k = 1; k < colunas - 1; k++) {
+                value = ( dm2dGetEntry(matrix, l-1, k) + dm2dGetEntry(matrix, l+1, k) + dm2dGetEntry(matrix, l, k-1) + dm2dGetEntry(matrix, l, k+1) ) / 4.0;
+                dm2dSetEntry(matrix_aux, l, k, value);
+            }
+        }
+        
 
 		if ( ID != 1)
 			enviarMensagem( ID, ID -1, (void*) dm2dGetLine(matrix, 1), sizeof(double)*(colunas+2));
@@ -144,7 +151,7 @@ int main (int argc, char** argv) {
     return -1;
   }
 
-  int ID, i, j=0;
+  int ID, i;
 
   for(i=0; i<N+2; i++)
     dm2dSetLineTo(matrix, i, 0);
@@ -165,16 +172,26 @@ int main (int argc, char** argv) {
 
     pthread_create(&tid[i], NULL, simulFatia, &argumentos[i]);
   }
-
+    int h = N/trab - 1, j = 0;
+    //COMEÇa com ID = 2? pq 1a linha da 1a fatia não precisa de ser 'partilhada'
+    //fazer receberMen DEPOIS
   for  ( ID = 1; ID <= trab; ID++ ){
       enviarMensagem(0, ID,(void*) &matrix[j], sizeof(double)* ( N+2 )*(( N/trab ) + 2));
       j += N/trab;
   }
-
-  /*
+     //receber mensagem na ultima linha de cada fatia
+    //dunno wtf im doing
+    //fazer enviarMens ANTES
+    for ( ID = 1: ID <= trab - 1; ID++ ){
+        receberMensagem(0, ID, (void*) &matrix[h], sizeof(double)* ( N+2 )*(( N/trab ) + 2));
+        h += N/trab;
+    }
+  
+/*
   receber mensagens para criar a matriz
   */
-
+ // criar a matriz?
+    
   //result = simul(matrix, matrix_aux, N+2, N+2, iteracoes);
   if (result == NULL) {
     printf("\nErro na simulacao.\n\n");
