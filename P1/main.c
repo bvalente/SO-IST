@@ -44,6 +44,7 @@ void *simulFatia(void* argumentos){
 
     dm2dCopy(matrix_aux,matrix);
 
+	int value;
 	for (i = 0; i < numIteracoes; i++){
         
         //Calculos dos valores
