@@ -40,6 +40,7 @@ void *simulFatia(void* argumentos){
 
   DoubleMatrix2D *matrix, *matrix_aux, *ponteiro_aux;
 
+  //Alocamento de memoria
 	matrix = dm2dNew(linhas+2, colunas+2);
 	matrix_aux = dm2dNew(linhas+2, colunas+2);
 
@@ -64,30 +65,26 @@ void *simulFatia(void* argumentos){
     matrix = matrix_aux;
     matrix_aux = ponteiro_aux;
 
-    //printf("ID:%d iter:%d\n",ID , i );
-    //dm2dPrint(matrix);
-    //enviamos as mensagens
-		if ( ID == 1){
-			enviarMensagem( ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
-      receberMensagem( ID + 1, ID, dm2dGetLine(matrix, linhas + 1), tam);
-    }
-		else if ( ID == numThreads){
-			enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
-      receberMensagem( ID - 1, ID, dm2dGetLine(matrix, 0), tam);
-    }
-		else {
-      enviarMensagem (ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
-      enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
+    //envio de mensagens
+    if ( numThreads != 1 ){
+      if ( ID == 1){
+    		enviarMensagem( ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
+        receberMensagem( ID + 1, ID, dm2dGetLine(matrix, linhas + 1), tam);
+      }
+    	else if ( ID == numThreads){
+    		enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
+        receberMensagem( ID - 1, ID, dm2dGetLine(matrix, 0), tam);
+      }
+    	else {
+        enviarMensagem (ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
+        enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
 
-      receberMensagem( ID + 1, ID, dm2dGetLine(matrix, linhas + 1), tam);
-      receberMensagem( ID - 1, ID, dm2dGetLine(matrix, 0), tam);
+        receberMensagem( ID + 1, ID, dm2dGetLine(matrix, linhas + 1), tam);
+        receberMensagem( ID - 1, ID, dm2dGetLine(matrix, 0), tam);
+      }
     }
-
-
   }
-/*  printf("ID: %d \n",ID);
-  dm2dPrint(matrix);
-*/
+
   //enviar mensagem para a main
 
   for ( i = 0; i < (linhas + 2); i++){
@@ -192,8 +189,8 @@ int main (int argc, char** argv) {
   dm2dSetColumnTo (matrix, 0, tEsq);
   dm2dSetColumnTo (matrix, N+1, tDir);
 
-  pthread_t *tid = malloc(sizeof(pthread_t)*trab);
-  EscravoArgs *argumentos = malloc(sizeof(EscravoArgs)*trab);
+  pthread_t *tid = malloc( sizeof(pthread_t) * trab);
+  EscravoArgs *argumentos = malloc( sizeof(EscravoArgs) * trab);
 
   for(i=1; i <= trab; i++){
     argumentos[i-1].ID = i;
@@ -214,9 +211,8 @@ int main (int argc, char** argv) {
     }
     j += tamFatia;
   }
-  //correr todas as simulacoes/threads
-  //sincronizar as threads?? pthread_join
-  //receber as mensagens finais de todas as threads e construir matriz
+
+  //Receber as mensagens de todas as threads e constroi matriz
   j = 0;
   for  ( ID = 1; ID <= trab; ID++ ){
     for ( i = j; i < j + tamFatia + 2; i++){
@@ -227,6 +223,8 @@ int main (int argc, char** argv) {
 
   dm2dPrint(matrix);
   dm2dFree(matrix);
+  free(tid);
+  free(argumentos);
   libertarMPlib();
 
   return 0;
