@@ -140,7 +140,6 @@ int main (int argc, char** argv) {
     return 1;
   }
 
-  /* argv[0] = program name */
   int N = parse_integer_or_exit(argv[1], "N");
   double tEsq = parse_double_or_exit(argv[2], "tEsq");
   double tSup = parse_double_or_exit(argv[3], "tSup");
