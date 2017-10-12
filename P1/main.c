@@ -91,8 +91,8 @@ void *simulFatia(void* argumentos){
     enviarMensagem(ID, 0, dm2dGetLine(matrix, i) , tam );
   }
   //free
-  free(matrix);
-  free(matrix_aux);
+  dm2dFree(matrix);
+  dm2dFree(matrix_aux);
 
   return NULL;
 }
@@ -219,6 +219,10 @@ int main (int argc, char** argv) {
       receberMensagem(ID, 0, dm2dGetLine(matrix, i), sizeof(double)* (N+2) ) ;
     }
     j += tamFatia;
+  }
+
+  for(i=1; i <= trab; i++){
+    pthread_join(tid[i-1], NULL);
   }
 
   dm2dPrint(matrix);
