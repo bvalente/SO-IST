@@ -23,7 +23,7 @@ clean:
 	rm -f *.o heatSim
 
 zip:
-	zip heatSim_p1_solucao.zip *.c *.h Makefile
+	zip heatSim_p2.zip *.c *.h Makefile
 
 run:
 	./heatSim 8 10.0 10.0 0.0 0.0 10 4 5
