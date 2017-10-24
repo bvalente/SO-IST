@@ -68,11 +68,11 @@ void *simulFatia(void* argumentos){
     //envio de mensagens
     if ( numThreads != 1 ){
       if ( ID == 1){
-    		enviarMensagem( ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
+        enviarMensagem( ID, ID + 1, dm2dGetLine(matrix, linhas), tam);
         receberMensagem( ID + 1, ID, dm2dGetLine(matrix, linhas + 1), tam);
       }
     	else if ( ID == numThreads){
-    		enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
+        enviarMensagem (ID, ID - 1, dm2dGetLine(matrix, 1), tam);
         receberMensagem( ID - 1, ID, dm2dGetLine(matrix, 0), tam);
       }
     	else {
@@ -181,8 +181,8 @@ int main (int argc, char** argv) {
   int ID, i;
 
   for(i=0; i<N+2; i++)
-  dm2dSetLineTo(matrix, i, 0);
-
+      dm2dSetLineTo(matrix, i, 0);
+    
   dm2dSetLineTo (matrix, 0, tSup);
   dm2dSetLineTo (matrix, N+1, tInf);
   dm2dSetColumnTo (matrix, 0, tEsq);
@@ -192,6 +192,7 @@ int main (int argc, char** argv) {
   EscravoArgs *argumentos = malloc( sizeof(EscravoArgs) * trab);
 
   for(i=1; i <= trab; i++){
+      
     argumentos[i-1].ID = i;
     argumentos[i-1].numIteracoes = iteracoes;
     argumentos[i-1].numThreads = trab;
@@ -204,6 +205,7 @@ int main (int argc, char** argv) {
 
   //enviar mensagens para as threads
   j = 0;
+    
   for  ( ID = 1; ID <= trab; ID++ ){
     for ( i = j; i < j + tamFatia + 2; i++){
       enviarMensagem(0, ID, dm2dGetLine(matrix, i), sizeof(double)* (N+2) ) ;
