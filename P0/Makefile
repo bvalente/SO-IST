@@ -14,4 +14,4 @@ clean:
 	rm -f *.o heatSim
 
 run:
-		./heatSim 8 10.0 10.0 0.0 0.0 10 0.5
+		./heatSim 8 10.0 10.0 0.0 0.0 10
