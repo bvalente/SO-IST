@@ -1,0 +1,12 @@
+34,38d33
+<   /* Receber mensagem da main */
+<   char *str = (char*) malloc(sizeof(char)*20);
+<   receberMensagem(0, tinfo->id, str, sizeof(char)*10 );
+<   printf("\n%s\n", str );
+< 
+233,237d227
+<   }
+<   /* Enviar mensagem às tarefas */
+<   char *str = "Pronto!";
+<   for (i = 0; i<trab; i++){
+<   	enviarMensagem(0, i+1, str, sizeof(str));
