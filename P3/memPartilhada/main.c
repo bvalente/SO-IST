@@ -11,10 +11,12 @@
 
 /* Estrutura com Informacao para Escravos */
 typedef struct Barrier{
-    int nBlocks;
-    int N;
+    int i[1];
+    int numThreads;
+    int totalThreads;
     pthread_cond_t varCond;
     pthread_mutex_t key;
+    
 }barrier;
 
 typedef struct {
@@ -25,20 +27,55 @@ typedef struct {
     int tam_fatia;
     barrier bar;
 } thread_info;
+
+// variaveis globais
+DoubleMatrix2D *matrix, *matrix_aux;
+barrier *bar;
+int maxD;
+
+
 /*--------------------------------------------------------------------
  | Function: tarefa_escravo
  | Description: Função executada por cada tarefa escravo
  ---------------------------------------------------------------------*/
-void block(){
+void barrier_init(int N){
+    bar->i[0] = 0;
+    bar->i[1] = 0;
+    bar->numThreads = 0;
+    bar->totalThreads = N;
+    //precisa de verificar erros ao iniciar os mutex e cond
+    pthread_cond_init(&bar->varCond, NULL);
+    pthread_mutex_init(&bar->key, NULL);
+    
+}
+
+void barrier_wait(){
     pthread_mutex_lock(&bar.key);
     
-    if (++ bar.nBlocks == bar.N ){
-        bar.nBlocks = 0;
-        //broadcast
-        pthread_cond_broadcast(&bar.varCond)
+    if ( bar.numThreads[i]++ == bar.totalThreads ){
+        
+        
+        numThreads[i] = 0; // reset estado partilhado
+        i ? i = 0 : i = 1;        //broadcast
+        pthread_cond_broadcast(&bar->varCond);
+    }
+    else{
+        while(bar.numThreads[i] != bar.totalThreads){
+            pthread_cond_wait(&bar->varCond,&bar->key);
+        }
     }
     
 }
+
+void barrier_destroy(){
+    
+    pthread_mutex_destroy(&bar->key);
+    pthread_cond_destroy(&bar->varCond);
+    
+}
+
+
+
 void *tarefa_escravo(void* args) {
     thread_info *tinfo = (thread_info *) args;
     DoubleMatrix2D *fatias[2];
@@ -55,7 +92,7 @@ void *tarefa_escravo(void* args) {
         pthread_exit((void *) 1);
     }
     
-
+    
     
     /* Ciclo Iterativo */
     for (iter = 0; iter < tinfo->iter; iter++) {
@@ -64,22 +101,22 @@ void *tarefa_escravo(void* args) {
         prox = 1 - iter % 2;
         
         // Calcular Pontos Internos
-        for (i = 0; i < tinfo->tam_fatia; i++) {
-            for (j = 0; j < tinfo->N; j++) {
-                double val = (dm2dGetEntry(fatias[atual], i, j+1) +
-                              dm2dGetEntry(fatias[atual], i+2, j+1) +
-                              dm2dGetEntry(fatias[atual], i+1, j) +
-                              dm2dGetEntry(fatias[atual], i+1, j+2))/4;
-                dm2dSetEntry(fatias[prox], i+1, j+1, val);
+            for (i = 0; i < tinfo->tam_fatia; i++) {
+                for (j = 0; j < tinfo->N; j++) {
+                    double val = (dm2dGetEntry(fatias[atual], i, j+1) +
+                                  dm2dGetEntry(fatias[atual], i+2, j+1) +
+                                  dm2dGetEntry(fatias[atual], i+1, j) +
+                                  dm2dGetEntry(fatias[atual], i+1, j+2))/4;
+                    dm2dSetEntry(fatias[prox], i+1, j+1, val);
+                }
             }
         }
-    }
     /* Libertar Memoria Alocada */
     dm2dFree(fatias[0]);
     dm2dFree(fatias[1]);
     
     return ((void *) 0);
-    }
+}
 
 /*--------------------------------------------------------------------
  | Function: parse_integer_or_exit
@@ -127,9 +164,9 @@ int main (int argc, char** argv) {
     int tam_fatia;
     int res;
     int i, j;
-    DoubleMatrix2D  *matrix;
     thread_info *tinfo;
     pthread_t *escravos;
+    bar = (barrier*) malloc(sizeof(barrier));
     
     
     if (argc < 9) {
@@ -166,14 +203,15 @@ int main (int argc, char** argv) {
         return 1;
     }
     
-    /* Inicializar Biblioteca de Passagem de Mensagens */
-    inicializarMPlib(csz, trab + 1);
+    /* Inicializar barreira*/
+    barrier_init(N); //threads mais main?
     
     /* Calcular Tamanho de cada Fatia */
     tam_fatia = N/trab;
     
     /* Criar Matriz Inicial */
     matrix = dm2dNew(N+2, N+2);
+    matrix_aux = dm2dNew(N+2, N+2);
     
     if (matrix == NULL) {
         fprintf(stderr, "\nErro ao criar Matrix2d.\n");
@@ -184,6 +222,8 @@ int main (int argc, char** argv) {
     dm2dSetLineTo(matrix, N+1, tInf);
     dm2dSetColumnTo(matrix, 0, tEsq);
     dm2dSetColumnTo(matrix, N+1, tDir);
+    
+    dm2dCopy(matrix_aux, matrix);
     
     /* Reservar Memoria para Escravos */
     tinfo = (thread_info *)malloc(trab * sizeof(thread_info));
@@ -209,24 +249,19 @@ int main (int argc, char** argv) {
         }
     }
     
-    /* Enviar Fatias e Linhas Adjacentes, Linha a Linha, a cada Escravo */
-    for (i = 0; i < trab; i++)
-        for (j = 0; j < (tam_fatia + 2); j++)
-            enviarMensagem(0, i+1, dm2dGetLine(matrix, i*tam_fatia + j), (N+2)*sizeof(double));
+   
     
-    /* Receber Fatias Finais de cada Escravo e Guardar na Matriz */
-    for (i = 0; i < trab; i++)
-        for (j = 0; j < tam_fatia; j++)
-            receberMensagem(i+1, 0, dm2dGetLine(matrix, i*tam_fatia + j + 1), (N+2)*sizeof(double));
+    
+    
     
     /* Esperar que os Escravos Terminem */
     for (i = 0; i < trab; i++) {
         res = pthread_join(escravos[i], NULL);
         
         if (res != 0) {
-            fprintf(stderr, "\nErro ao esperar por um escravo.\n");    
+            fprintf(stderr, "\nErro ao esperar por um escravo.\n");
             return 1;
-        }  
+        }
     }
     
     /* Imprimir resultado */
