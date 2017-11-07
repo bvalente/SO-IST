@@ -9,7 +9,7 @@ heatSim: main.o matrix2d.o
 	$(CC) $(CFLAGS) -o heatSim main.o matrix2d.o
 
 main.o : main.c
-	$(CC) $(CFLAGS) -pthread -c main.c
+	$(CC) $(CFLAGS) -c main.c
 
 matrix2d.o: matrix2d.c matrix2d.h
 	$(CC) $(CFLAGS) -c matrix2d.c

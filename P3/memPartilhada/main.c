@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include "matrix2d.h"
 
+#define IND (bar->i % 2)
 
 /* Estrutura com Informacao para Escravos */
 typedef struct Barrier{
@@ -28,9 +29,10 @@ typedef struct {
 } thread_info;
 
 // variaveis globais
-DoubleMatrix2D *matrix, *matrix_aux;
+DoubleMatrix2D *matrix [2];
+
 barrier *bar;
-int maxD;
+double maxD;
 
 int barrier_init(int N){
     int status;
@@ -38,6 +40,7 @@ int barrier_init(int N){
     bar->numThreads[0] = 0;
     bar->numThreads[1] = 0;
     bar->totalThreads = N;
+    printf("\nN is %d\n",N );
     //precisa de verificar erros ao iniciar os mutex e cond
     status = pthread_cond_init(&bar->varCond, NULL);
     if (status != 0)
@@ -50,23 +53,31 @@ int barrier_init(int N){
 }
 
 void barrier_wait(){
-    int i = bar->i;
+
     pthread_mutex_lock(&bar->key);
+    int i = bar->i;
+    printf("%d\n", i);
 
     if ( ++bar->numThreads[i] == bar->totalThreads ){
 
-        bar->numThreads[i] = 0;      // reset estado partilhado
+        //printf("numthreads is %d and totalThreads is %d\n", bar->numThreads[i], bar->totalThreads );
+
         if ( i )
             bar->i = 0;
         else
             bar->i = 1;
+
+        bar->numThreads[bar->i] = 0;      // reset estado partilhado
         //broadcast
         pthread_cond_broadcast(&bar->varCond);
     }
     else{
         while(bar->numThreads[i] != bar->totalThreads){
+            printf("numThreads Is %d and totalThreads is %d\n", bar->numThreads[i], bar->totalThreads);
             pthread_cond_wait(&bar->varCond,&bar->key);
+
         }
+        printf("ola\n" );
     }
     pthread_mutex_unlock(&bar->key);
 }
@@ -84,19 +95,17 @@ void *tarefa_escravo(void* args) {
     thread_info *tinfo = (thread_info *) args;
     int iter;
     int i, j;
-    int matrixTurn = bar->i;
-
+    printf("my id is %d\n", tinfo->id );
     /* Ciclo Iterativo */
     for (iter = 0; iter < tinfo->iter; iter++) {
-
     // Calcular Pontos Internos
-        for (i = 0; i < tinfo->tam_fatia; i++) {
+        for (i = tinfo->tam_fatia*(tinfo->id-1) ; i < tinfo->id*tinfo->tam_fatia; i++) {
             for (j = 0; j < tinfo->N; j++) {
-                double val = (dm2dGetEntry(matrix, i, j+1) +
-                              dm2dGetEntry(matrix, i+1, j) +
-                              dm2dGetEntry(matrix, i+2, j+1) +
-                              dm2dGetEntry(matrix, i+1, j+2))/4;
-                dm2dSetEntry(matrix, i+1, j+1, val);
+                double val = (dm2dGetEntry(matrix[IND], i, j+1) +
+                              dm2dGetEntry(matrix[IND], i+1, j) +
+                              dm2dGetEntry(matrix[IND], i+2, j+1) +
+                              dm2dGetEntry(matrix[IND], i+1, j+2))/4;
+                dm2dSetEntry(matrix[IND], i+1, j+1, val);
             }
         }
         barrier_wait();
@@ -147,10 +156,9 @@ int main (int argc, char** argv) {
     double tEsq, tSup, tDir, tInf;
     int iter;
     int trab;
-    int maxD;
     int tam_fatia;
     int res;
-    int i, j;
+    int i;
     thread_info *tinfo;
     pthread_t *escravos;
 
@@ -168,12 +176,11 @@ int main (int argc, char** argv) {
     tInf = parse_double_or_exit(argv[5], "tInf");
     iter = parse_integer_or_exit(argv[6], "iter");
     trab = parse_integer_or_exit(argv[7], "trab");
-    maxD =  parse_integer_or_exit(argv[8], "maxD");
+    maxD =  parse_double_or_exit(argv[8], "maxD");
 
     fprintf(stdout, "\nArgumentos:\n"
-            " N=%d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iter=%d trab=%d maxD=%d",
+            " N=%d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iter=%d trab=%d maxD=%.1f",
             N, tEsq, tSup, tDir, tInf, iter, trab, maxD);
-
 
     /* Verificacoes de Input */
     if (N < 1 || tEsq < 0 || tSup < 0 || tDir < 0 || tInf < 0 || iter < 1) {
@@ -204,20 +211,20 @@ int main (int argc, char** argv) {
     tam_fatia = N/trab;
 
     /* Criar Matriz Inicial */
-    matrix = dm2dNew(N+2, N+2);
-    matrix_aux = dm2dNew(N+2, N+2);
+    matrix[0] = dm2dNew(N+2, N+2);
+    matrix[1] = dm2dNew(N+2, N+2);
 
-    if (matrix == NULL) {
+    if (matrix[0] == NULL || matrix[1] == NULL) {
         fprintf(stderr, "\nErro ao criar Matrix2d.\n");
         return 1;
     }
 
-    dm2dSetLineTo(matrix, 0, tSup);
-    dm2dSetLineTo(matrix, N+1, tInf);
-    dm2dSetColumnTo(matrix, 0, tEsq);
-    dm2dSetColumnTo(matrix, N+1, tDir);
+    dm2dSetLineTo(matrix[0], 0, tSup);
+    dm2dSetLineTo(matrix[0], N+1, tInf);
+    dm2dSetColumnTo(matrix[0], 0, tEsq);
+    dm2dSetColumnTo(matrix[0], N+1, tDir);
 
-    dm2dCopy(matrix_aux, matrix);
+    dm2dCopy(matrix[1], matrix[0]);
 
     /* Reservar Memoria para Escravos */
     tinfo = (thread_info *)malloc(trab * sizeof(thread_info));
@@ -244,10 +251,6 @@ int main (int argc, char** argv) {
     }
 
 
-
-
-
-
     /* Esperar que os Escravos Terminem */
     for (i = 0; i < trab; i++) {
         res = pthread_join(escravos[i], NULL);
@@ -259,11 +262,12 @@ int main (int argc, char** argv) {
     }
 
     /* Imprimir resultado */
-    dm2dPrint(matrix);
+    dm2dPrint(matrix[IND]);
 
     /* Libertar Memoria */
-    dm2dFree(matrix);
-    dm2dFree(matrix_aux);
+    dm2dFree(matrix[0]);
+    dm2dFree(matrix[1]);
+    barrier_destroy();
     free(bar);
     free(tinfo);
     free(escravos);
