@@ -89,18 +89,18 @@ void *tarefa_escravo(void* args) {
     /* Ciclo Iterativo */
     for (iter = 0; iter < tinfo->iter; iter++) {
 
-        // Calcular Pontos Internos
-            for (i = 0; i < tinfo->tam_fatia; i++) {
-                for (j = 0; j < tinfo->N; j++) {
-                    double val = (dm2dGetEntry(matrix, i, j+1) +
-                                  dm2dGetEntry(matrix, i+1, j) +
-                                  dm2dGetEntry(matrix, i+2, j+1) +
-                                  dm2dGetEntry(matrix, i+1, j+2))/4;
-                    dm2dSetEntry(matrix, i+1, j+1, val);
-                }
+    // Calcular Pontos Internos
+        for (i = 0; i < tinfo->tam_fatia; i++) {
+            for (j = 0; j < tinfo->N; j++) {
+                double val = (dm2dGetEntry(matrix, i, j+1) +
+                              dm2dGetEntry(matrix, i+1, j) +
+                              dm2dGetEntry(matrix, i+2, j+1) +
+                              dm2dGetEntry(matrix, i+1, j+2))/4;
+                dm2dSetEntry(matrix, i+1, j+1, val);
             }
-
         }
+        barrier_wait();
+    }
 
     return NULL;
 }
