@@ -8,7 +8,8 @@
 #include <pthread.h>
 #include "matrix2d.h"
 
-#define IND (bar->i % 2)
+#define IND (bar->i   % 2)
+#define IND1 ((bar->i+1 )% 2)
 
 /* Estrutura com Informacao para Escravos */
 typedef struct Barrier{
@@ -34,13 +35,30 @@ DoubleMatrix2D *matrix [2];
 barrier *bar;
 double maxD;
 
-int barrier_init(int N){
+int Termina = 0;
+
+
+void terminacaoDin(int N){
+    double maxDaux = 0;
+    int i,j;
+    for (i = 1; i < N - 1; i++){
+        for (j = 1; j < N - 1;j++){
+            if (dm2dGetEntry(matrix[IND],i,j) - dm2dGetEntry(matrix[IND1],i,j) > maxDaux)
+                maxDaux = dm2dGetEntry(matrix[IND],i,j) - dm2dGetEntry(matrix[IND1],i,j);
+        }
+    }
+    if (maxDaux <= maxD){
+        Termina = 1;
+    }
+    return;
+}
+
+int barrier_init(int totalThreads){
     int status;
     bar->i = 0;
     bar->numThreads[0] = 0;
     bar->numThreads[1] = 0;
-    bar->totalThreads = N;
-    printf("\nN is %d\n",N );
+    bar->totalThreads = totalThreads;
     //precisa de verificar erros ao iniciar os mutex e cond
     status = pthread_cond_init(&bar->varCond, NULL);
     if (status != 0)
@@ -52,16 +70,11 @@ int barrier_init(int N){
     return 0;
 }
 
-void barrier_wait(){
+void barrier_wait(int N){
 
     pthread_mutex_lock(&bar->key);
     int i = bar->i;
-    printf("%d\n", i);
-
     if ( ++bar->numThreads[i] == bar->totalThreads ){
-
-        //printf("numthreads is %d and totalThreads is %d\n", bar->numThreads[i], bar->totalThreads );
-
         if ( i )
             bar->i = 0;
         else
@@ -69,15 +82,15 @@ void barrier_wait(){
 
         bar->numThreads[bar->i] = 0;      // reset estado partilhado
         //broadcast
+
         pthread_cond_broadcast(&bar->varCond);
+        terminacaoDin(N);
+
     }
     else{
         while(bar->numThreads[i] != bar->totalThreads){
-            printf("numThreads Is %d and totalThreads is %d\n", bar->numThreads[i], bar->totalThreads);
             pthread_cond_wait(&bar->varCond,&bar->key);
-
         }
-        printf("ola\n" );
     }
     pthread_mutex_unlock(&bar->key);
 }
@@ -95,7 +108,6 @@ void *tarefa_escravo(void* args) {
     thread_info *tinfo = (thread_info *) args;
     int iter;
     int i, j;
-    printf("my id is %d\n", tinfo->id );
     /* Ciclo Iterativo */
     for (iter = 0; iter < tinfo->iter; iter++) {
     // Calcular Pontos Internos
@@ -105,10 +117,12 @@ void *tarefa_escravo(void* args) {
                               dm2dGetEntry(matrix[IND], i+1, j) +
                               dm2dGetEntry(matrix[IND], i+2, j+1) +
                               dm2dGetEntry(matrix[IND], i+1, j+2))/4;
-                dm2dSetEntry(matrix[IND], i+1, j+1, val);
+                dm2dSetEntry(matrix[IND1], i+1, j+1, val);
             }
         }
-        barrier_wait();
+        barrier_wait(tinfo->N);
+        if (Termina)
+            return NULL;
     }
 
     return NULL;
