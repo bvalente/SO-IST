@@ -1,0 +1,17 @@
+
+plano:
+
+na barreira, testar para ver se e para fazer fork
+para gravar num ficheiro a parte a matriz
+
+criar um ptherad para fazer wait do fork,
+quando voltar à barreira, ver se a variavel tem o pid do filho,
+ou se tem 0
+objetivo: ver se e para guardar de x em x iteracoes, ou se
+e para guardar de x em x segundos
+
+quando acontecer o siginit( ctrl + c),
+ou esperar pelo fork, para acabar de gravar,
+ou gravar a matriz, criando um fork e esperando por este
+
+ 

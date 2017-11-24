@@ -8,6 +8,12 @@
 #include <pthread.h>
 #include <math.h>
 
+//bibliotecas para forks e waits
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include  <signal.h>
+
 #include "matrix2d.h"
 #include "util.h"
 
@@ -190,6 +196,21 @@ void *tarefa_trabalhadora(void *args) {
 }
 
 /*--------------------------------------------------------------------
+| Function: signalHandler
+| Description: Comando para SIGINT (Ctrl+C)
+---------------------------------------------------------------------*/
+
+void signalHandler(int sig){
+    //se existir filho, esperar
+    if (/*existe filho?*/ 0){
+        wait(NULL);
+    } else {
+        // cria filho para guardar matriz
+        exit(0);
+    }
+}
+
+/*--------------------------------------------------------------------
 | Function: main
 | Description: Entrada do programa
 ---------------------------------------------------------------------*/
@@ -225,6 +246,9 @@ int main (int argc, char** argv) {
                     "%s deve ser multiplo de %s.", "N", "trab", "N", "trab");
     return -1;
   }
+
+  // Redirecciona o signal de Crtl+C
+  signal(SIGINT, signalHandler);
 
   // Inicializar Barreira
   dual_barrier = dualBarrierInit(trab);
@@ -284,7 +308,6 @@ int main (int argc, char** argv) {
   free(tinfo);
   free(trabalhadoras);
   dualBarrierFree(dual_barrier);
-  
+
   return 0;
 }
- 
