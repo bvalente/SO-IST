@@ -27,3 +27,5 @@ zip: heatSim_solucao.zip
 
 heatSim_solucao.zip: Makefile main.c matrix2d.h util.h matrix2d.c matrix2d.h util.c
 	zip $@ $+
+run:
+	./heatSim 8 10.0 10.0 0.0 0.0 10 2 0.4

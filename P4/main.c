@@ -221,6 +221,8 @@ int main (int argc, char** argv) {
   int iter, trab;
   int tam_fatia;
   int res;
+  //int periodoS;
+  //char fichS;
 
   if (argc != 9) {
     fprintf(stderr, "Utilizacao: ./heatSim N tEsq tSup tDir tInf iter trab maxD\n\n");
@@ -236,6 +238,8 @@ int main (int argc, char** argv) {
   iter = parse_integer_or_exit(argv[6], "iter", 1);
   trab = parse_integer_or_exit(argv[7], "trab", 1);
   maxD = parse_double_or_exit (argv[8], "maxD", 0);
+  //fichS = parse_string_or_exit(argv[9], "fichS");
+  //periodoS = parse_integer_or_exit(argv[10], "periodoS", 0);
 
   //fprintf(stderr, "\nArgumentos:\n"
   // " N=d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iter=%d trab=%d csz=%d",
