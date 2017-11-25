@@ -27,4 +27,7 @@ DoubleMatrix2D *readMatrix2dFromFile(FILE *f, int l, int c);
 #define         dm2dGetEntry(m,l,c)    m->data[((l)*m->n_c)+(c)]
 #define         dm2dSetEntry(m,l,c,v)  m->data[((l)*m->n_c)+(c)]=v
 
+void dm2dPrintToNewFile (DoubleMatrix2D*, const char*);
+void dm2dPrintToFile (DoubleMatrix2D*, const char*);
+
 #endif

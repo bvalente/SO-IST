@@ -21,7 +21,7 @@ util.o: util.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	rm -f *.o heatSim
+	rm -f *.o heatSim; rm p4.txt
 
 zip: heatSim_solucao.zip
 
