@@ -361,12 +361,28 @@ int main (int argc, char** argv) {
     if (tinfo == NULL || trabalhadoras == NULL) {
         die("Erro ao alocar memoria para trabalhadoras");
     }
+    /*
+        - declarar variavel sigaction const struct
+    e sigset_t
+        - sigemptyset
+        - sigaddset(x2)
+        - pthread_sigmask BLOCK
+        - for dos threads
+        - pthread_sigmask UNBLOCK
+        -sigemptyset sa_mask
+        -definir sa_handler
+        -sigaction(x2)
 
-    sigemptyset
-    sigadd
-    sigadd
+        */
 
-    pthread_sigmask(    );
+    sigset_t *allSig;
+
+    sigemptyset(allSig);
+    sigaddset(allSig, SIGALRM);
+    sigaddset(allSig, SIGINT);
+
+
+    pthread_sigmask(SIG_BLOCK, allSig, NULL);
     // Criar trabalhadoras
     for (int i=0; i < trab; i++) {
         tinfo[i].id = i;
@@ -380,7 +396,7 @@ int main (int argc, char** argv) {
             die("Erro ao criar uma tarefa trabalhadora");
         }
     }
-    pthread_sigmask(    );
+    pthread_sigmask(SIG_UNBLOCK, allSig, NULL);
 
     sigaction( SIGINT, signaltHandler);
     sigaction(SIGALRM, signaltHandler);
