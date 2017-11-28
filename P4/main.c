@@ -220,6 +220,21 @@ void signalHandler(int sig){
     }
 }
 
+void backupMatrix(char *fichS){
+    if (fork() == 0){
+        FILE *file = freopen(fichS, "w+", stdout);
+        if (file == NULL)
+            die("unable to open the file to write");
+        //dm2dPrintToFile(matrix_copies[0], fichS);
+        dm2dPrint(matrix_copies[0]);
+        if (fclose(file)!=0){
+            //printf("Error: unable to close the file\n");
+            die("unable to close the file");
+        }
+        exit(0);
+    }
+}
+
 /*--------------------------------------------------------------------
 | Function: main
 | Description: Entrada do programa
@@ -280,33 +295,26 @@ int main (int argc, char** argv) {
     }
 
     if( access( fichS, F_OK ) != -1 ) {
-        printf("Ficheiro já existe.\n");//ficheiro exite, ler do ficheiro
+        //ficheiro exite, ler do ficheiro
+        printf("\nFicheiro já existe.\nLer Matriz do ficheiro.\n");
         FILE *file = fopen(fichS,"r");
         if (file == NULL)
             die("unable to open the file to read.");
+
         matrix_copies[0] = readMatrix2dFromFile(file, N+2, N+2);
 
         if (fclose(file)!=0){
-            //printf("Error: unable to close the file\n");
             die("unable to close the file");
         }
 
     } else {
-        //printf("nao existe\n");// file doesn't exist
+        // file doesn't exist
         dm2dSetLineTo (matrix_copies[0], 0, tSup);
         dm2dSetLineTo (matrix_copies[0], N+1, tInf);
         dm2dSetColumnTo (matrix_copies[0], 0, tEsq);
         dm2dSetColumnTo (matrix_copies[0], N+1, tDir);
 
-        FILE *file = fopen(fichS, "w");
-        if (file == NULL)
-            die("unable to open the file to write");
-        dm2dPrintToFile(matrix_copies[0], fichS);
-        if (fclose(file)!=0){
-            //printf("Error: unable to close the file\n");
-            die("unable to close the file");
-        }
-
+        backupMatrix(fichS);
     }
     dm2dCopy (matrix_copies[1],matrix_copies[0]);
 
@@ -341,7 +349,9 @@ int main (int argc, char** argv) {
     }
 
     dm2dPrint (matrix_copies[dual_barrier->iteracoes_concluidas%2]);
-
+    //apagar o ficheiro porque ja nao e necessario
+    if (remove(fichS))
+        die("eliminar ficheiro");
     // Libertar memoria
     dm2dFree(matrix_copies[0]);
     dm2dFree(matrix_copies[1]);
