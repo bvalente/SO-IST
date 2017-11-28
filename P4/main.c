@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include  <signal.h>
+#include <string.h>
 
 #include "matrix2d.h"
 #include "util.h"
@@ -41,7 +42,6 @@ typedef struct {
     int             pending[2];
     double          maxdelta[2];
     int             iteracoes_concluidas;
-    int             salvaguarda;
     pthread_mutex_t mutex;
     pthread_cond_t  wait[2];
 } DualBarrierWithMax;
@@ -54,6 +54,37 @@ DoubleMatrix2D     *matrix_copies[2];
 DualBarrierWithMax *dual_barrier;
 double              maxD;
 
+/*--------------------------------------------------------------------
+ | Function: backupMatrix
+ | Description: guarda matriz num novo ficheiro
+ ---------------------------------------------------------------------*/
+
+
+
+void backupMatrix(char *fichS){
+    if (fork() == 0){
+        char str[10] ;
+        strcpy(str,"~");
+        strcat(str,fichS);
+
+
+        FILE *file = freopen(str, "w+", stdout);
+        //FILE *file2 = fopen(fichS,"w");
+        if (file == NULL)
+            die("unable to open the file to write");
+        dm2dPrint(matrix_copies[0]);
+
+        if (fclose(file)!=0){
+            die("unable to close the file");
+        }
+
+        if (rename(str, fichS) == -1){
+            die("renaming file");
+        }
+        exit(0);
+    }
+
+}
 /*--------------------------------------------------------------------
 | Function: dualBarrierInit
 | Description: Inicializa uma barreira dupla
@@ -70,7 +101,6 @@ DualBarrierWithMax *dualBarrierInit(int ntasks, int periodoS) {
     b->maxdelta[0] = 0;
     b->maxdelta[1] = 0;
     b->iteracoes_concluidas = 0;
-    b->salvaguarda = periodoS;
 
     if (pthread_mutex_init(&(b->mutex), NULL) != 0) {
         fprintf(stderr, "\nErro a inicializar mutex\n");
@@ -120,7 +150,6 @@ void dualBarrierFree(DualBarrierWithMax* b) {
 
 double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
     int next = 1 - current;
-    int check = b->salvaguarda;
     if (pthread_mutex_lock(&(b->mutex)) != 0) {
         fprintf(stderr, "\nErro a bloquear mutex\n");
         exit(1);
@@ -138,10 +167,7 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         b->pending[next]  = b->total_nodes;
         b->maxdelta[next] = 0;
 
-        if (check-- == 0){
-            printf("im at zeros, restarting %i\n", check);
 
-        }
         if (pthread_cond_broadcast(&(b->wait[current])) != 0) {
             fprintf(stderr, "\nErro a assinalar todos em variável de condição\n");
             exit(1);
@@ -205,34 +231,22 @@ void *tarefa_trabalhadora(void *args) {
     return 0;
 }
 
+
 /*--------------------------------------------------------------------
-| Function: signalHandler
-| Description: Comando para SIGINT (Ctrl+C)
----------------------------------------------------------------------*/
+ | Function: signalHandler
+ | Description: Comando para SIGINT (Ctrl+C)
+ ---------------------------------------------------------------------*/
 
 void signalHandler(int sig){
     //se existir filho, esperar
     if (/*existe filho?*/ 0){
         wait(NULL);
     } else {
-        // cria filho para guardar matriz
+        //backupMatrix(/*to finish*/);
         exit(0);
-    }
-}
 
-void backupMatrix(char *fichS){
-    if (fork() == 0){
-        FILE *file = freopen(fichS, "w+", stdout);
-        if (file == NULL)
-            die("unable to open the file to write");
-        //dm2dPrintToFile(matrix_copies[0], fichS);
-        dm2dPrint(matrix_copies[0]);
-        if (fclose(file)!=0){
-            //printf("Error: unable to close the file\n");
-            die("unable to close the file");
-        }
-        exit(0);
     }
+
 }
 
 /*--------------------------------------------------------------------
@@ -263,8 +277,9 @@ int main (int argc, char** argv) {
     iter = parse_integer_or_exit(argv[6], "iter", 1);
     trab = parse_integer_or_exit(argv[7], "trab", 1);
     maxD = parse_double_or_exit (argv[8], "maxD", 0);
-    fichS = (argv[9]); //verificar se é string //e sempre string, nao e preciso verificar
-    periodoS = parse_integer_or_exit(argv[10], "periodoS", 0); //adicionar caso de periodoS =0, para desligar salvaguarda.
+    fichS = (argv[9]);
+    periodoS = parse_integer_or_exit(argv[10], "periodoS", 0);
+
 
     fprintf(stderr, "\nArgumentos:\n"
     " N=%d tEsq=%.1f tSup=%.1f tDir=%.1f tInf=%.1f iter=%d trab=%d maxD=%.2f fichS=%s periodoS=%d\n",
@@ -315,6 +330,7 @@ int main (int argc, char** argv) {
         dm2dSetColumnTo (matrix_copies[0], N+1, tDir);
 
         backupMatrix(fichS);
+
     }
     dm2dCopy (matrix_copies[1],matrix_copies[0]);
 

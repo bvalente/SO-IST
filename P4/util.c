@@ -27,16 +27,7 @@ int parse_integer_or_exit(char const *str, char const *name, int min_value) {
   return value;
 }
 
-/*char parse_string_or_exit(char const *str, char const *name) {
 
-  char *s =NULL;
-  if (sscanf(str, "%s", s) != 1) {
-    fprintf(stderr, "\nErro no argumento \"%s\".\n\n", name);
-    exit(-1);
-  }
-
-  return *s;
-}*/
 /*--------------------------------------------------------------------
 | Function: parse_double_or_exit
 | Description: Processa a string str, do parametro name, como um double
