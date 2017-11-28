@@ -53,6 +53,8 @@ typedef struct {
 DoubleMatrix2D     *matrix_copies[2];
 DualBarrierWithMax *dual_barrier;
 double              maxD;
+int                 interrupt;
+int                 alarmeFlag;
 
 /*--------------------------------------------------------------------
  | Function: backupMatrix
@@ -63,9 +65,12 @@ double              maxD;
 
 void backupMatrix(char *fichS){
     if (fork() == 0){
-        char str[10] ;
+
+        char *str;
+        str =  (char*) malloc( (strlen(fichS) + 2) *sizeof(char) );
         strcpy(str,"~");
         strcat(str,fichS);
+        //printf("\n%s\n", );
 
 
         FILE *file = freopen(str, "w+", stdout);
@@ -167,7 +172,21 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         b->pending[next]  = b->total_nodes;
         b->maxdelta[next] = 0;
 
+/*
+        //verificar backup
+        if (interrupt){
+            waitpid(    );
 
+            backupMatrix(   ):
+        } else if (alarmeFlag){
+            alarmeFlag = 0;
+
+            waitpid(    );
+
+
+        }
+
+*/
         if (pthread_cond_broadcast(&(b->wait[current])) != 0) {
             fprintf(stderr, "\nErro a assinalar todos em variável de condição\n");
             exit(1);
@@ -237,16 +256,16 @@ void *tarefa_trabalhadora(void *args) {
  | Description: Comando para SIGINT (Ctrl+C)
  ---------------------------------------------------------------------*/
 
-void signalHandler(int sig){
-    //se existir filho, esperar
-    if (/*existe filho?*/ 0){
-        wait(NULL);
-    } else {
-        //backupMatrix(/*to finish*/);
-        exit(0);
+void signaltHandler(int sig){
+    //lock
+    if (sig == SIGALRM){
+        alarmeFlag = 1;
+        //reactivate alarm
 
+    }else{//SIGINT
+        interrupt = 1;
     }
-
+    //unlock
 }
 
 /*--------------------------------------------------------------------
@@ -262,6 +281,8 @@ int main (int argc, char** argv) {
     int res;
     int periodoS;
     char *fichS;
+    interrupt = 0;
+    alarmeFlag = 0;
 
     if (argc != 11) {
         fprintf(stderr, "Utilizacao: ./heatSim N tEsq tSup tDir tInf iter trab maxD fichS periodoS\n\n");
@@ -291,8 +312,6 @@ int main (int argc, char** argv) {
         return -1;
     }
 
-    // Redirecciona o signal de Crtl+C
-    signal(SIGINT, signalHandler);
 
     // Inicializar Barreira
     dual_barrier = dualBarrierInit(trab, periodoS);
@@ -343,6 +362,11 @@ int main (int argc, char** argv) {
         die("Erro ao alocar memoria para trabalhadoras");
     }
 
+    sigemptyset
+    sigadd
+    sigadd
+
+    pthread_sigmask(    );
     // Criar trabalhadoras
     for (int i=0; i < trab; i++) {
         tinfo[i].id = i;
@@ -356,6 +380,10 @@ int main (int argc, char** argv) {
             die("Erro ao criar uma tarefa trabalhadora");
         }
     }
+    pthread_sigmask(    );
+
+    sigaction( SIGINT, signaltHandler);
+    sigaction(SIGALRM, signaltHandler);
 
     // Esperar que as trabalhadoras terminem
     for (int i=0; i<trab; i++) {
@@ -366,6 +394,8 @@ int main (int argc, char** argv) {
 
     dm2dPrint (matrix_copies[dual_barrier->iteracoes_concluidas%2]);
     //apagar o ficheiro porque ja nao e necessario
+
+    //esperar pelo fim do backupMatrix
     if (remove(fichS))
         die("eliminar ficheiro");
     // Libertar memoria

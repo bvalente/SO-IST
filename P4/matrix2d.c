@@ -107,46 +107,6 @@ void dm2dPrint (DoubleMatrix2D *matrix) {
     }
 }
 
-
-/*--------------------------------------------------------------------
- | Function: fileExists
- ---------------------------------------------------------------------*/
-int fileExists(const char * filename) {
-    FILE *f = fopen(filename, "r");
-    if (f) {
-        fclose(f);
-        return 1;
-    }
-    return 0;
-}
-/*--------------------------------------------------------------------
- | Function: removeFile
- ---------------------------------------------------------------------*/
-int removeFile( const char * filename) {
-    int ret;
-
-    ret = remove(filename);
-
-    if(ret == 0) {
-        printf("File deleted successfully\n");
-    } else {
-        printf("Error: unable to delete the file\n");
-    }
-
-    return(0);
-}
-
-
-/*--------------------------------------------------------------------
- | Function: moveFile
- ---------------------------------------------------------------------*/
-int moveFile(){
-
-    //apagar fichS alterar o nome de ~fichS para fichS
-    //ou mover mesmo o conteudo e apagar ~fichS
-    return 0;
-}
-
 /*--------------------------------------------------------------------
  | Function: readMatrix2dFromFile
  ---------------------------------------------------------------------*/
@@ -176,49 +136,4 @@ DoubleMatrix2D *readMatrix2dFromFile(FILE *f, int l, int c) {
     }
 
     return m;
-}
-/*--------------------------------------------------------------------
- | Function: dm2dPrintToNewFile
- ---------------------------------------------------------------------*/
-
-void dm2dPrintToNewFile (DoubleMatrix2D *matrix, const char *filename) {
-    int i, j;
-    FILE *file = fopen(filename, "w+");
-    if (file == NULL){
-        printf("Error: Unable to create file\n");
-    }
-    else{
-        fprintf (file, "\n");
-        for (i=0; i<matrix->n_l; i++) {
-            for (j=0; j<matrix->n_c; j++)
-                fprintf(file, " %8.4f", dm2dGetEntry(matrix, i, j));
-            fprintf (file, "\n");
-        }
-    }
-    if (fclose(file)!=0){
-        printf("Error: unable to close the file\n");
-     }
-}
-
-/*--------------------------------------------------------------------
- | Function: dm2dPrintToFile
- ---------------------------------------------------------------------*/
-
-void dm2dPrintToFile (DoubleMatrix2D *matrix, const char *filename) {
-    int i, j;
-    FILE *file = fopen(filename, "r+");
-    if (file == NULL){
-        printf("Error: Unable to read or modify file\n");
-    }
-    else{
-        fprintf (file, "\n");
-        for (i=0; i<matrix->n_l; i++) {
-            for (j=0; j<matrix->n_c; j++)
-                fprintf(file, " %8.4f", dm2dGetEntry(matrix, i, j));
-            fprintf (file, "\n");
-        }
-    }
-    if (fclose(file)!=0){
-        printf("Error: unable to close the file\n");
-    }
 }
