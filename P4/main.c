@@ -202,13 +202,12 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
 
             if ( pidFilho == -1 ) { //não há filhos
                 backupMatrix( backupFich );
-            }
-            if ( pidFilho >= 0){
+            } else if ( pidFilho >= 0){
                 filho = waitpid(pidFilho, NULL, WNOHANG);
 
                 if (filho){
                     backupMatrix( backupFich );
-                
+
                 }
             }
         }
