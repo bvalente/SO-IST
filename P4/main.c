@@ -55,6 +55,7 @@ DualBarrierWithMax *dual_barrier;
 double              maxD;
 int                 interrupt;
 int                 alarmeFlag;
+pid_t               pidFilho;
 
 /*--------------------------------------------------------------------
  | Function: backupMatrix
@@ -64,7 +65,7 @@ int                 alarmeFlag;
 
 
 void backupMatrix(char *fichS){
-    if (fork() == 0){
+    if ( (pidFilho = fork() )== 0){
 
         char *str;
         str =  (char*) malloc( (strlen(fichS) + 2) *sizeof(char) );
@@ -172,7 +173,7 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         b->pending[next]  = b->total_nodes;
         b->maxdelta[next] = 0;
 
-/*
+
         //verificar backup
         if (interrupt){
             waitpid(    );
@@ -180,13 +181,13 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
             backupMatrix(   ):
         } else if (alarmeFlag){
             alarmeFlag = 0;
-
-            waitpid(    );
-
+            if (pidFilho >= 0){
+                waitpid(pidFilho,NULL ,WNOHANG);
+                //faz sentido que retorne 0 se ainda ha filhos?
+            }
 
         }
 
-*/
         if (pthread_cond_broadcast(&(b->wait[current])) != 0) {
             fprintf(stderr, "\nErro a assinalar todos em variável de condição\n");
             exit(1);
@@ -256,14 +257,15 @@ void *tarefa_trabalhadora(void *args) {
  | Description: Comando para SIGINT (Ctrl+C)
  ---------------------------------------------------------------------*/
 
-void signaltHandler(int sig){
-    //lock
+void signalHandler(int sig){
+    //lock dual_barrier
     if (sig == SIGALRM){
         alarmeFlag = 1;
         //reactivate alarm
 
     }else{//SIGINT
         interrupt = 1;
+        //redefine sigaction?
     }
     //unlock
 }
@@ -283,6 +285,7 @@ int main (int argc, char** argv) {
     char *fichS;
     interrupt = 0;
     alarmeFlag = 0;
+    pidFilho = -1;
 
     if (argc != 11) {
         fprintf(stderr, "Utilizacao: ./heatSim N tEsq tSup tDir tInf iter trab maxD fichS periodoS\n\n");
@@ -373,16 +376,17 @@ int main (int argc, char** argv) {
         -definir sa_handler
         -sigaction(x2)
 
-        */
+    */
+    struct sigaction sig;
+    sigset_t allSig;
 
-    sigset_t *allSig;
-
-    sigemptyset(allSig);
-    sigaddset(allSig, SIGALRM);
-    sigaddset(allSig, SIGINT);
+    sigemptyset(&allSig);
+    sigaddset(&allSig, SIGALRM);
+    sigaddset(&allSig, SIGINT);
 
 
-    pthread_sigmask(SIG_BLOCK, allSig, NULL);
+    pthread_sigmask(SIG_BLOCK, &allSig, NULL); //pode falhar
+
     // Criar trabalhadoras
     for (int i=0; i < trab; i++) {
         tinfo[i].id = i;
@@ -396,10 +400,17 @@ int main (int argc, char** argv) {
             die("Erro ao criar uma tarefa trabalhadora");
         }
     }
-    pthread_sigmask(SIG_UNBLOCK, allSig, NULL);
 
-    sigaction( SIGINT, signaltHandler);
-    sigaction(SIGALRM, signaltHandler);
+    pthread_sigmask(SIG_UNBLOCK, &allSig, NULL);
+
+    sigemptyset(&allSig);
+    sig.sa_mask = allSig;
+    sig.sa_handler = signalHandler;
+    sigaction( SIGINT, &sig, NULL);
+
+    //if peiodoS > 0
+    sigaction(SIGALRM, &sig, NULL);
+    alarm(periodoS);
 
     // Esperar que as trabalhadoras terminem
     for (int i=0; i<trab; i++) {
