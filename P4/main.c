@@ -56,6 +56,8 @@ double              maxD;
 int                 interrupt;
 int                 alarmeFlag;
 pid_t               pidFilho;
+int                 tempo;
+char*               backupFich;
 
 /*--------------------------------------------------------------------
  | Function: backupMatrix
@@ -173,19 +175,21 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         b->pending[next]  = b->total_nodes;
         b->maxdelta[next] = 0;
 
-
         //verificar backup
         if (interrupt){
-            waitpid(    );
-
-            backupMatrix(   ):
+            if (pidFilho >= 0){
+                wait(NULL);
+            }
+            backupMatrix( backupFich );
         } else if (alarmeFlag){
             alarmeFlag = 0;
-            if (pidFilho >= 0){
-                waitpid(pidFilho,NULL ,WNOHANG);
-                //faz sentido que retorne 0 se ainda ha filhos?
-            }
+            pid_t filho = 0;
 
+            if (pidFilho >= 0){
+                filho = waitpid(pidFilho, NULL, WNOHANG);
+                if (filho)
+                    backupMatrix( backupFich );
+            }
         }
 
         if (pthread_cond_broadcast(&(b->wait[current])) != 0) {
@@ -203,10 +207,17 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         }
     }
     double maxdelta = b->maxdelta[current];
+    if (interrupt){
+        printf("int\n" );
+        // caso o programa seja interrompido por Ctr+C todas as tarefas trabalhadoras serão interrompidas
+        // via maxD (por causa da terminação dinâmica)
+        maxdelta = -1;
+    }
     if (pthread_mutex_unlock(&(b->mutex)) != 0) {
         fprintf(stderr, "\nErro a desbloquear mutex\n");
         exit(1);
     }
+
     return maxdelta;
 }
 
@@ -227,7 +238,6 @@ void *tarefa_trabalhadora(void *args) {
         int atual = iter % 2;
         int prox = 1 - iter % 2;
         double max_delta = 0;
-
         // Calcular Pontos Internos
         for (int i = my_base; i < my_base + tinfo->tam_fatia; i++) {
             for (int j = 0; j < tinfo->N; j++) {
@@ -247,7 +257,7 @@ void *tarefa_trabalhadora(void *args) {
         // barreira de sincronizacao; calcular delta global
         global_delta = dualBarrierWait(dual_barrier, atual, max_delta);
     } while (++iter < tinfo->iter && global_delta >= tinfo->maxD);
-
+    printf("%f\n",global_delta );
     return 0;
 }
 
@@ -258,16 +268,18 @@ void *tarefa_trabalhadora(void *args) {
  ---------------------------------------------------------------------*/
 
 void signalHandler(int sig){
-    //lock dual_barrier
+    if (pthread_mutex_lock(&(dual_barrier->mutex)) != 0)
+        die("a bloquear mutex.\n");
+
     if (sig == SIGALRM){
         alarmeFlag = 1;
-        //reactivate alarm
+        alarm(tempo);
 
     }else{//SIGINT
         interrupt = 1;
-        //redefine sigaction?
     }
-    //unlock
+    if (pthread_mutex_unlock(&(dual_barrier->mutex)) != 0)
+        die("a desbloquear mutex.\n");
 }
 
 /*--------------------------------------------------------------------
@@ -315,7 +327,8 @@ int main (int argc, char** argv) {
         return -1;
     }
 
-
+    tempo = periodoS;
+    backupFich = fichS; //copia ponteiros
     // Inicializar Barreira
     dual_barrier = dualBarrierInit(trab, periodoS);
     if (dual_barrier == NULL)
@@ -380,12 +393,18 @@ int main (int argc, char** argv) {
     struct sigaction sig;
     sigset_t allSig;
 
-    sigemptyset(&allSig);
-    sigaddset(&allSig, SIGALRM);
-    sigaddset(&allSig, SIGINT);
+    if (sigemptyset(&allSig) == -1)
+        die("em sigemptyset");
+
+    if ( sigaddset(&allSig, SIGALRM) == -1 )
+        die(" em sigaddset de SIGALRM ");
+    if ( sigaddset(&allSig, SIGINT) == -1 )
+        die(" em sigaddset de SIGINT ");
 
 
-    pthread_sigmask(SIG_BLOCK, &allSig, NULL); //pode falhar
+
+    if ( pthread_sigmask(SIG_BLOCK, &allSig, NULL) != 0 )
+        die(" em  pthread_sigmask Block ");
 
     // Criar trabalhadoras
     for (int i=0; i < trab; i++) {
@@ -401,16 +420,22 @@ int main (int argc, char** argv) {
         }
     }
 
-    pthread_sigmask(SIG_UNBLOCK, &allSig, NULL);
+    if ( pthread_sigmask(SIG_UNBLOCK, &allSig, NULL) != 0 )
+        die(" em  pthread_sigmask Unblock ");
 
-    sigemptyset(&allSig);
+    if ( sigemptyset(&allSig) == -1 )
+        die(" em sigemptyset ");
+
     sig.sa_mask = allSig;
     sig.sa_handler = signalHandler;
+
     sigaction( SIGINT, &sig, NULL);
 
-    //if peiodoS > 0
-    sigaction(SIGALRM, &sig, NULL);
-    alarm(periodoS);
+    if (periodoS > 0){
+        sigaction(SIGALRM, &sig, NULL);
+        alarm(tempo);
+    }
+
 
     // Esperar que as trabalhadoras terminem
     for (int i=0; i<trab; i++) {
@@ -419,13 +444,15 @@ int main (int argc, char** argv) {
             die("Erro ao esperar por uma tarefa trabalhadora");
     }
 
-    dm2dPrint (matrix_copies[dual_barrier->iteracoes_concluidas%2]);
-    //apagar o ficheiro porque ja nao e necessario
+    if(pidFilho >= 0)
+        wait(NULL);
 
-    //esperar pelo fim do backupMatrix
-    if (remove(fichS))
-        die("eliminar ficheiro");
-    // Libertar memoria
+    if(interrupt == 0){
+        dm2dPrint (matrix_copies[dual_barrier->iteracoes_concluidas%2]);
+
+        if (remove(fichS))
+            die("eliminar ficheiro");
+    }
     dm2dFree(matrix_copies[0]);
     dm2dFree(matrix_copies[1]);
     free(tinfo);
