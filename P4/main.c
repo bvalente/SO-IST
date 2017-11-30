@@ -66,21 +66,21 @@ sigset_t allSig;
  | Description: guarda matriz num novo ficheiro
  ---------------------------------------------------------------------*/
 
-
-
 void backupMatrix(char *fichS){
     pidFilho = fork();
-    if  (pidFilho == 0){
+
+    if (pidFilho < 0){
+        die(" falha na criação de um processo filho");
+
+    } else if  (pidFilho == 0){
 
         char *str;
         str =  (char*) malloc( (strlen(fichS) + 2) *sizeof(char) );
         strcpy(str,"~");
         strcat(str,fichS);
-        //printf("\n%s\n", );
-
 
         FILE *file = freopen(str, "w+", stdout);
-        //FILE *file2 = fopen(fichS,"w");
+
         if (file == NULL)
             die("unable to open the file to write");
         dm2dPrint(matrix_copies[0]);
@@ -92,6 +92,8 @@ void backupMatrix(char *fichS){
         if (rename(str, fichS) == -1){
             die("renaming file");
         }
+
+        free(str);
         exit(0);
     }
 
@@ -165,8 +167,7 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         fprintf(stderr, "\nErro a bloquear mutex\n");
         exit(1);
     }
-    if (interrupt)
-        printf("int1 \n" );
+
     // decrementar contador de tarefas restantes
     b->pending[current]--;
     // actualizar valor maxDelta entre todas as threads
@@ -181,27 +182,34 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
 
         //verificar backup
         if (interrupt){
-            printf("inter\n" );
 
-            b->maxdelta[current]=-1;
+            b->maxdelta[current] = -1;  //interrupts every thread via maxD
 
             pidFilho = wait(NULL);
-            if (pidFilho >= 0 || (pidFilho ==-1 && errno ==  ECHILD)){
-                printf("finished waiting\n");
+
+            if ( pidFilho >= 0 || (pidFilho == -1 && errno ==  ECHILD)){
+                //não há filhos OU filho terminou
+                printf("O programa foi interrompido\n" );
                 backupMatrix( backupFich );
+                printf("Salvaguarda da matriz completa\n" );
+
             }
 
+        }else if (alarmeFlag){
 
-
-
-        } else if (alarmeFlag){
             alarmeFlag = 0;
             pid_t filho = 0;
 
-            if (pidFilho >= 0){
+            if ( pidFilho == -1 ) { //não há filhos
+                backupMatrix( backupFich );
+            }
+            if ( pidFilho >= 0){
                 filho = waitpid(pidFilho, NULL, WNOHANG);
-                if (filho)
+
+                if (filho){
                     backupMatrix( backupFich );
+                
+                }
             }
         }
 
@@ -220,12 +228,7 @@ double dualBarrierWait (DualBarrierWithMax* b, int current, double localmax) {
         }
     }
     double maxdelta = b->maxdelta[current];
-    /*if (interrupt){
-        printf("int \n" );
-        // caso o programa seja interrompido por Ctr+C todas as tarefas trabalhadoras serão interrompidas
-        // via maxD (por causa da terminação dinâmica)
-        maxdelta = -1;
-    }*/
+
     if (pthread_mutex_unlock(&(b->mutex)) != 0) {
         fprintf(stderr, "\nErro a desbloquear mutex\n");
         exit(1);
@@ -246,7 +249,7 @@ void *tarefa_trabalhadora(void *args) {
     int my_base = tinfo->id * tam_fatia;
     double global_delta = INFINITY;
     int iter = 0;
-    printf("interrupted %d\n", interrupt);
+
     do {
         int atual = iter % 2;
         int prox = 1 - iter % 2;
@@ -268,12 +271,10 @@ void *tarefa_trabalhadora(void *args) {
         }
 
         // barreira de sincronizacao; calcular delta global
-        if(interrupt) printf("gonna barrier\n" );
+
         global_delta = dualBarrierWait(dual_barrier, atual, max_delta);
     } while (++iter < tinfo->iter && global_delta >= tinfo->maxD);
-    printf("interrupted is now %d\n", interrupt);
 
-    printf("%f\n",global_delta );
     return 0;
 }
 
@@ -284,8 +285,9 @@ void *tarefa_trabalhadora(void *args) {
  ---------------------------------------------------------------------*/
 
 void signalHandler(int sig){
-    /*if (pthread_mutex_lock(&(dual_barrier->mutex)) != 0)
-        die("a bloquear mutex.\n");*/
+
+    if (pthread_mutex_lock(&(dual_barrier->mutex)) != 0)
+        die("a bloquear mutex.\n");
 
     if (sig == SIGALRM){
         alarmeFlag = 1;
@@ -294,8 +296,8 @@ void signalHandler(int sig){
     }else{//SIGINT
         interrupt = 1;
     }
-    /*if (pthread_mutex_unlock(&(dual_barrier->mutex)) != 0)
-        die("a desbloquear mutex.\n");*/
+    if (pthread_mutex_unlock(&(dual_barrier->mutex)) != 0)
+        die("a desbloquear mutex.\n");
 }
 
 /*--------------------------------------------------------------------
@@ -329,7 +331,7 @@ int main (int argc, char** argv) {
     iter = parse_integer_or_exit(argv[6], "iter", 1);
     trab = parse_integer_or_exit(argv[7], "trab", 1);
     maxD = parse_double_or_exit (argv[8], "maxD", 0);
-    fichS = (argv[9]);
+    fichS = argv[9];
     periodoS = parse_integer_or_exit(argv[10], "periodoS", 0);
 
 
@@ -440,13 +442,13 @@ int main (int argc, char** argv) {
     if ( sigemptyset(&allSig) == -1 )
         die(" em sigemptyset ");
 
-
-
     sigaction( SIGINT, &sig, NULL);
 
     if (periodoS > 0){
+        printf("periodoS is %d\n", tempo );
         sigaction(SIGALRM, &sig, NULL);
         alarm(tempo);
+        printf("alarme ativo\n" );
     }
 
 
@@ -464,7 +466,6 @@ int main (int argc, char** argv) {
         dm2dPrint (matrix_copies[dual_barrier->iteracoes_concluidas%2]);
 
         if( access( fichS, F_OK ) != -1 ) {
-
             if (remove(fichS))
                 die("eliminar ficheiro");
         }
